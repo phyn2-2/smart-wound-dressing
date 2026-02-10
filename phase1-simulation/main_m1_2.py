@@ -7,6 +7,7 @@ if src_path not in sys.path:
     sys.path.insert(0,src_path)
 
 import numpy as np
+import csv
 import matplotlib.pyplot as plt
 from wound_model import WoundModel
 from noise import NoiseGenerator
@@ -18,7 +19,7 @@ from alert_logic import AlertLogic
 # ==================================
 SIMULATION_DAYS = 10
 SAMPLING_INTERVAL_MIN = 15
-SCENARIO = 'normal'  # 'normal' or 'infection'
+SCENARIO = 'infection'  # 'normal' or 'infection'
 
 # Noise parameters (from specifications)
 pH_NOISE = NoiseGenerator(
@@ -73,6 +74,8 @@ temp_clean = []
 temp_noisy = []
 alert_states = []
 
+csv_rows = []
+
 for t in time_points:
     # Clean values
     pH_clean.append(wound.get_pH(t))
@@ -89,7 +92,31 @@ for t in time_points:
     alert = alert_engine.update(pH_reading, temp_reading, t)
     alert_states.append(alert)
 
+    # Record raw sensor-equivalent data for Phase 2 replay
+    csv_rows.append({
+        "time_hours": float(t),
+        "pH": float(pH_reading),
+        "temp": float(temp_reading)
+    })
+
 baseline = alert_engine.temp_baseline
+
+# =============================
+# CSV EXPORT (PHASE 2 HANDOFF)
+# =============================
+os.makedirs("data/validation", exist_ok=True)
+
+csv_filename = f"data/validation/m1_2_{SCENARIO}.csv"
+
+with open(csv_filename, "w", newline="") as f:
+    writer = csv.DictWriter(
+        f,
+        fieldnames=["time_hours", "pH", "temp"]
+    )
+    writer.writeheader()
+    writer.writerows(csv_rows)
+
+print(f"[EXPORT] Phase 1 data written to: {csv_filename}")
 
 # ==========================
 # VISUALIZATION
